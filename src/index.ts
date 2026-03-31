@@ -128,18 +128,30 @@ server.tool(
       const id = validateNoteId(note_id);
       const data = await granolaFetch(`/v1/notes/${id}`) as Record<string, unknown>;
       const owner = data.owner as Record<string, string> | undefined;
+      const attendees = Array.isArray(data.attendees)
+        ? (data.attendees as Array<Record<string, string>>).map(a => a.name || a.email).join(", ")
+        : null;
+      const folders = Array.isArray(data.folder_membership)
+        ? (data.folder_membership as Array<Record<string, string>>).map(f => f.name).join(", ")
+        : null;
 
-      const text = [
+      const lines = [
         `# ${data.title ?? "Untitled"}`,
         `**Owner:** ${owner?.name ? `${owner.name} <${owner.email}>` : "unknown"}`,
         `**Created:** ${data.created_at ?? "unknown"}`,
         `**Updated:** ${data.updated_at ?? "unknown"}`,
-        "",
-        "## Summary",
-        typeof data.summary === "string" ? data.summary : "No summary available.",
-      ].join("\n");
+      ];
+      if (attendees) lines.push(`**Attendees:** ${attendees}`);
+      if (folders) lines.push(`**Folder:** ${folders}`);
+      lines.push("");
+      lines.push("## Summary");
+      lines.push(
+        typeof data.summary_markdown === "string" ? data.summary_markdown
+        : typeof data.summary_text === "string" ? data.summary_text
+        : "No summary available."
+      );
 
-      return { content: [{ type: "text", text }] };
+      return { content: [{ type: "text", text: lines.join("\n") }] };
     } catch (err) {
       return toolError(err instanceof Error ? err.message : "Unknown error fetching note");
     }
