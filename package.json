@@ -19,7 +19,12 @@
     "meeting-notes",
     "model-context-protocol"
   ],
-  "author": "",
+  "author": "stanleylai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stanleylai/granola-simple-mcp.git"
+  },
+  "homepage": "https://github.com/stanleylai/granola-simple-mcp",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
