@@ -1,8 +1,12 @@
 # granola-simple-mcp
 
-A connector that gives AI tools like Claude access to your [Granola](https://granola.ai/) meeting notes — so you can ask things like _"summarise my meetings from last week"_ or _"what did we decide in Tuesday's standup?"_
+A thin, no-frills [MCP](https://modelcontextprotocol.io/) wrapper around [Granola's official API](https://docs.granola.ai/introduction).
 
-Works with Claude Desktop, Claude Code, Cursor, and any other [MCP](https://modelcontextprotocol.io/)-compatible AI tool.
+The goal is to have a direct bridge between your MCP client and your Granola meeting notes. Every tool call maps directly to a Granola API endpoint, and the response is passed through with minimal formatting. We don't try to do anything too clever, and leave it to you to build on top of this.
+
+This is useful if you like to build your own config instead of relying on the built-in Connectors in Claude or other platforms.
+
+Works with Claude Desktop, Claude Code, Cursor, and any other MCP-compatible AI tool.
 
 ---
 
