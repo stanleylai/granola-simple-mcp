@@ -159,9 +159,23 @@ server.tool(
 );
 
 // Tool: get_transcript
+interface TranscriptSegment {
+  text: string;
+  start_time: string;
+  end_time: string;
+  speaker: { source: string };
+}
+
 server.tool(
   "get_transcript",
-  "Get the full transcript for a Granola meeting note.",
+  [
+    "Get the full transcript for a Granola meeting note.",
+    "Each segment includes a speaker object with:",
+    "- source: 'microphone' = the local user who recorded the meeting (you)",
+    "- source: 'speaker' = remote participant(s) heard through audio output",
+    "- is_self: true if the speaker is you (microphone), false otherwise",
+    "- speaker_label: 'You' or 'Other' for easy display",
+  ].join("\n"),
   {
     note_id: z.string().describe("The note ID (e.g. 'not_...')"),
   },
@@ -170,15 +184,51 @@ server.tool(
       const id = validateNoteId(note_id);
       const data = await granolaFetch(`/v1/notes/${id}`, { include: "transcript" }) as Record<string, unknown>;
 
+      if (!Array.isArray(data.transcript)) {
+        const fallback = typeof data.transcript === "string"
+          ? data.transcript
+          : "No transcript available.";
+        return { content: [{ type: "text", text: fallback }] };
+      }
+
+      const segments = data.transcript as TranscriptSegment[];
+
+      const selfSegments: string[] = [];
+      const otherSegments: string[] = [];
+      const formattedLines: string[] = [];
+
+      for (const seg of segments) {
+        const isSelf = seg.speaker?.source === "microphone";
+        const label = isSelf ? "You" : "Other";
+        const time = seg.start_time
+          ? new Date(seg.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "";
+
+        formattedLines.push(`**${label}** (${time}): ${seg.text}`);
+
+        if (isSelf) {
+          selfSegments.push(seg.text);
+        } else {
+          otherSegments.push(seg.text);
+        }
+      }
+
       const text = [
         `# Transcript: ${data.title ?? "Untitled"}`,
         `**Date:** ${data.created_at ?? "unknown"}`,
+        `**Segments:** ${segments.length} (You: ${selfSegments.length}, Other: ${otherSegments.length})`,
         "",
-        typeof data.transcript === "string"
-          ? data.transcript
-          : data.transcript != null
-            ? JSON.stringify(data.transcript, null, 2)
-            : "No transcript available.",
+        "## Full transcript",
+        "",
+        ...formattedLines,
+        "",
+        "## What you said",
+        "",
+        selfSegments.length > 0 ? selfSegments.join("\n\n") : "_No segments from you (microphone)._",
+        "",
+        "## What others said",
+        "",
+        otherSegments.length > 0 ? otherSegments.join("\n\n") : "_No segments from others._",
       ].join("\n");
 
       return { content: [{ type: "text", text }] };
