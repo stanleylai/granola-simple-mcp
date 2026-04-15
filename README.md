@@ -1,10 +1,8 @@
 # granola-simple-mcp
 
-A thin, no-frills [MCP](https://modelcontextprotocol.io/) wrapper around [Granola's official API](https://docs.granola.ai/introduction).
+A thin, no-frills [MCP](https://modelcontextprotocol.io/) wrapper around [Granola's official API](https://docs.granola.ai/introduction). Direct bridge to your meeting notes, summaries, and transcripts — nothing clever, just a pass-through you can build on.
 
-The goal is to have a direct bridge between your MCP client and your Granola meeting notes. Every tool call maps directly to a Granola API endpoint, and the response is passed through with minimal formatting. We don't try to do anything too clever, and leave it to you to build on top of this.
-
-This is useful if you like to build your own config instead of relying on the built-in Connectors in Claude or other platforms.
+Every tool call maps directly to a Granola API endpoint, and the response is passed through with minimal formatting. This is useful if you prefer to build your own setup instead of relying on built-in connectors in Claude or other platforms.
 
 Works with Claude Desktop, Claude Code, Cursor, and any other MCP-compatible AI tool.
 

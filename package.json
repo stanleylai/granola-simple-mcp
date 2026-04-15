@@ -1,7 +1,7 @@
 {
   "name": "granola-simple-mcp",
   "version": "1.0.4",
-  "description": "A thin, no-frills MCP wrapper around Granola's official API — direct access to your meeting notes, summaries, and transcripts",
+  "description": "A thin, no-frills MCP wrapper around Granola's official API. Direct bridge to your meeting notes, summaries, and transcripts — nothing clever, just a pass-through you can build on.",
   "bin": {
     "granola-simple-mcp": "dist/index.js"
   },
