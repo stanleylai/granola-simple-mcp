@@ -218,8 +218,36 @@ If you see your meeting data, you're all set.
 | Ask your AI... | What it does |
 |---|---|
 | "List my meetings from [date range]" | Browses your notes by date |
-| "Get the summary for [meeting title]" | Returns the AI-generated summary |
-| "Show me the transcript for [meeting]" | Returns the full word-for-word transcript |
+| "List all my meetings from last week" | Fetches all matching notes in one call (uses `return_all`) |
+| "Get the summary for [meeting title]" | Returns the AI-generated summary, attendees, and folder |
+| "Show me the transcript for [meeting]" | Returns the full transcript with speaker labels (You/Other) |
+
+## Tools
+
+This server provides three tools, each mapping directly to Granola's official API:
+
+### `list_notes`
+
+List meeting notes, optionally filtered by date range. Returns up to 30 notes per page.
+
+| Parameter | Description |
+|---|---|
+| `created_after` | ISO date — only notes created after this date |
+| `created_before` | ISO date — only notes created before this date |
+| `updated_after` | ISO date — only notes updated after this date |
+| `page_size` | Results per page (1-30, default 10) |
+| `cursor` | Pagination cursor from a previous response |
+| `return_all` | Fetch all matching notes in one response (up to 200). Requires at least one date filter. |
+
+When `return_all` is not used, responses include structured pagination metadata (result count, has_more flag, cursor) so AI tools know to keep paginating.
+
+### `get_note`
+
+Get full details for a specific note: title, owner, attendees, folder, and the AI-generated summary.
+
+### `get_transcript`
+
+Get the full meeting transcript with speaker identification. Each segment is labelled as **You** (recorded from your microphone) or **Other** (heard through speakers). Includes pre-split sections for "What you said" and "What others said."
 
 ---
 
