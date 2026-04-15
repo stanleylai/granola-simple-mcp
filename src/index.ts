@@ -70,18 +70,82 @@ const server = new McpServer({
 });
 
 // Tool: list_notes
+const RETURN_ALL_MAX = 200;
+const RETURN_ALL_PAGE_SIZE = 30;
+
+function formatNote(n: Record<string, unknown>): string {
+  const title = n.title ?? "Untitled";
+  const id = n.id ?? "unknown";
+  const createdAt = typeof n.created_at === "string" ? new Date(n.created_at).toLocaleDateString() : "unknown date";
+  const owner = n.owner as Record<string, string> | undefined;
+  const ownerStr = owner?.name ? `${owner.name} <${owner.email}>` : "unknown";
+  return `- **${title}** (${createdAt})\n  ID: ${id} | Owner: ${ownerStr}`;
+}
+
 server.tool(
   "list_notes",
-  "List Granola meeting notes, optionally filtered by date range. Returns titles, dates, and IDs for browsing.",
+  [
+    "List Granola meeting notes, optionally filtered by date range.",
+    "Returns up to page_size notes per call (max 30). If has_more is true in the response metadata, call again with the provided cursor to get the next page.",
+    "Always follow pagination to completion when the user asks for a comprehensive list.",
+    "Set return_all: true with a date filter to fetch all matching notes in one call (up to 200).",
+  ].join(" "),
   {
     created_after: z.string().optional().describe("ISO date/datetime — only return notes created after this (e.g. '2025-03-24')"),
     created_before: z.string().optional().describe("ISO date/datetime — only return notes created before this"),
     updated_after: z.string().optional().describe("ISO date/datetime — only return notes updated after this"),
-    page_size: z.number().min(1).max(30).optional().describe("Results per page (1-30, default 10)"),
+    page_size: z.number().min(1).max(30).optional().describe("Results per page (1-30, default 10). Ignored when return_all is true."),
     cursor: z.string().optional().describe("Pagination cursor from a previous response"),
+    return_all: z.boolean().optional().describe("Fetch all matching notes in one response (up to 200). Requires at least one date filter."),
   },
-  async ({ created_after, created_before, updated_after, page_size, cursor }) => {
+  async ({ created_after, created_before, updated_after, page_size, cursor, return_all }) => {
     try {
+      const hasDateFilter = !!(created_after || created_before || updated_after);
+      const shouldReturnAll = return_all === true && hasDateFilter;
+
+      if (return_all === true && !hasDateFilter) {
+        return toolError("return_all requires at least one date filter (created_after, created_before, or updated_after) to prevent fetching thousands of notes.");
+      }
+
+      if (shouldReturnAll) {
+        // Internal pagination: fetch all pages up to RETURN_ALL_MAX
+        const allNotes: Record<string, unknown>[] = [];
+        let nextCursor: string | undefined;
+        let truncated = false;
+
+        do {
+          const params: Record<string, string> = { page_size: String(RETURN_ALL_PAGE_SIZE) };
+          if (created_after) params.created_after = created_after;
+          if (created_before) params.created_before = created_before;
+          if (updated_after) params.updated_after = updated_after;
+          if (nextCursor) params.cursor = nextCursor;
+
+          const data = await granolaFetch("/v1/notes", params) as Record<string, unknown>;
+          const notes = Array.isArray(data.notes) ? data.notes : [];
+          allNotes.push(...notes);
+
+          if (allNotes.length >= RETURN_ALL_MAX) {
+            allNotes.length = RETURN_ALL_MAX;
+            truncated = true;
+            break;
+          }
+
+          nextCursor = data.hasMore && typeof data.cursor === "string" ? data.cursor : undefined;
+        } while (nextCursor);
+
+        const lines = allNotes.map(formatNote);
+        const meta = truncated
+          ? `**Results:** ${allNotes.length} notes (truncated at ${RETURN_ALL_MAX} — more exist)`
+          : `**Results:** ${allNotes.length} notes (all matching)`;
+
+        const text = lines.length > 0
+          ? [meta, "", ...lines].join("\n")
+          : meta + "\n\nNo notes found for the given filters.";
+
+        return { content: [{ type: "text", text }] };
+      }
+
+      // Standard single-page fetch
       const params: Record<string, string> = {};
       if (created_after) params.created_after = created_after;
       if (created_before) params.created_before = created_before;
@@ -91,23 +155,18 @@ server.tool(
 
       const data = await granolaFetch("/v1/notes", params) as Record<string, unknown>;
       const notes = Array.isArray(data.notes) ? data.notes : [];
+      const hasMore = !!data.hasMore;
+      const nextPageCursor = typeof data.cursor === "string" ? data.cursor : null;
 
-      const lines = notes.map((n: Record<string, unknown>) => {
-        const title = n.title ?? "Untitled";
-        const id = n.id ?? "unknown";
-        const createdAt = typeof n.created_at === "string" ? new Date(n.created_at).toLocaleDateString() : "unknown date";
-        const owner = n.owner as Record<string, string> | undefined;
-        const ownerStr = owner?.name ? `${owner.name} <${owner.email}>` : "unknown";
-        return `- **${title}** (${createdAt})\n  ID: ${id} | Owner: ${ownerStr}`;
-      });
+      const meta = hasMore && nextPageCursor
+        ? `**Results:** ${notes.length} notes | **Has more:** yes | **Cursor:** ${nextPageCursor}`
+        : `**Results:** ${notes.length} notes | **Has more:** no`;
 
-      let text = lines.length > 0
-        ? lines.join("\n")
-        : "No notes found for the given filters.";
+      const lines = notes.map(formatNote);
 
-      if (data.hasMore && typeof data.cursor === "string") {
-        text += `\n\n_More results available. Use cursor: "${data.cursor}" to get the next page._`;
-      }
+      const text = lines.length > 0
+        ? [meta, "", ...lines].join("\n")
+        : meta + "\n\nNo notes found for the given filters.";
 
       return { content: [{ type: "text", text }] };
     } catch (err) {
